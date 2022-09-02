@@ -1,0 +1,7 @@
+
+    AABB(
+        min: (0.0, 0.0, 0.0),
+        max: (1.0, 1.0, 1.0),
+        texture: Some("assets/textures/rock_unknown.png")
+    )
+    
