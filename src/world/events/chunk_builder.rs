@@ -12,7 +12,7 @@ use crate::{
     voxel::{material::VoxelMaterial, model_storage::ModelStorage},
     world::{
         tile::{material_identifier::MaterialIdentifier, Tile},
-        ChunkComponent, World, meshing::build_mesh,
+        ChunkComponent, World, meshing::build_mesh, MaterialRegistry,
     },
 };
 
@@ -87,9 +87,11 @@ pub struct ChunkBuildEvent {
 pub fn handle_loading(
     mut commands: Commands,
     mut query: Query<(Entity, &mut LoadData)>,
-    mut mesh_query: Query<(Entity, &mut Handle<Mesh>)>,
+    mesh_query: Query<(Entity, &mut Handle<Mesh>)>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut world: ResMut<World>,
+    mut materials: ResMut<Assets<VoxelMaterial>>,
+    mut material_registry: Res<MaterialRegistry>
 ){
     for (entity, mut data) in &mut query{
         if let Some(event) = future::block_on(future::poll_once(&mut data.0)){
@@ -99,42 +101,64 @@ pub fn handle_loading(
             let pos = event.position;
             let block = &event.block;
 
+            let df_z_coord = pos.z;
+
             let pos = IVec3::new(pos.x, pos.z / 16, pos.y);
 
-            //Flipping coordinates
-            let chunk = world.chunk_mut((pos.x, pos.y, pos.z));
 
-            for (y, block) in block.into_iter().enumerate(){
-                for x in 0..16 {
-                    for z in 0..16 {
-                        let id = (x + z * 16) as usize;
-        
-                        let tile = Tile {
-                            tile_id: block.tiles[id],
-                            mat_pair: block.materials[id].clone().into(),
-                            base_mat: block.base_materials[id].clone().into(),
-                            hidden: block.hidden[id],
-                        };
-        
-                        chunk.set_tile(x, y as i32, z, tile)
+
+            {
+                let chunk = world.chunk_mut((pos.x, pos.y, pos.z));
+                
+                for block in block{
+                    let y = block.map_z - df_z_coord;
+                    assert!(y >= 0);
+                    for x in 0..16 {
+                        for z in 0..16 {
+                            let id = (x + z * 16) as usize;
+            
+                            let tile = Tile {
+                                tile_id: block.tiles[id],
+                                mat_pair: block.materials[id].clone().into(),
+                                base_mat: block.base_materials[id].clone().into(),
+                                hidden: block.hidden[id],
+                            };
+            
+                            chunk.set_tile(x, y as i32, z, tile)
+                        }
                     }
-                }
-            }            
+                }            
+            }
 
+            
             let mesh = match mesh_query.get(entity){
                 Ok((_, mesh)) => {
                     meshes.get_mut(mesh).unwrap()
                 },
                 Err(_) => {
                     let handle = meshes.add(Mesh::new(bevy::render::render_resource::PrimitiveTopology::TriangleList));
-                    commands.entity(entity).insert(handle.clone());
+                    commands.entity(entity)
+                    .insert_bundle(MaterialMeshBundle{
+                        mesh: handle.clone(),
+                        material: materials.add(VoxelMaterial{}),
+                        transform: Transform::from_xyz((pos.x * 16) as f32, (pos.y * 16) as f32, (pos.z * 16) as f32),
+                        ..default()
+                    });
+                    
                     meshes.get_mut(&handle).unwrap()      
                 }
             };
 
-            build_mesh(mesh);
+            let chunk = world.chunk((pos.x,pos.y,pos.z));
+
+            build_mesh(
+                mesh,
+                &chunk,
+                &world,
+                &material_registry
+            );
             commands.entity(entity).remove::<LoadData>();
-            println!("Removed LoadData")
+            println!("Removed LoadData for {}",pos)
         }
     }
 }

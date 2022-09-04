@@ -96,14 +96,11 @@ pub fn create_loader(
                 client.get_block_list(request)
             };
 
-            println!("received data for {}",pos);
             ChunkBuildEvent{
                 position: pos,
                 block: response.map_blocks,
             }
         });
-
-        println!("started event for {}",pos);
         commands.entity(event.entity)
         .insert(LoadData(task));
     }

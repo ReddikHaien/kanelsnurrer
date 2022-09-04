@@ -17,7 +17,7 @@ use world::{
         chunk_builder::{ChunkBuildEvent, handle_loading},
         chunk_loading::{ChunkLoadEvent, create_loader},
     },
-    World,
+    World, MaterialRegistry,
 };
 
 
@@ -35,6 +35,7 @@ fn main() {
         .insert_resource(RemoteFortressReader::new(Some("127.0.0.1:5000")))
         .add_state(AppState::Setup)
         .insert_resource(World::new())
+        .init_resource::<MaterialRegistry>()
         .add_event::<ChunkBuildEvent>()
         .add_event::<ChunkLoadEvent>()
         .add_system_set(SystemSet::on_enter(AppState::Running).with_system(startup_system))
@@ -65,7 +66,7 @@ fn startup_system(
     models: Res<ModelStorage>,
 ) {
     commands.spawn_bundle(Camera3dBundle {
-        transform: Transform::from_xyz(-5.0, -1.0, -5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(-10.0, 185.0, -10.0).looking_at(Vec3::new(0.0, 180.0, 0.0), Vec3::Y),
         ..default()
     });
 

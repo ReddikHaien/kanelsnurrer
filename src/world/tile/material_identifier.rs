@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fmt::Debug};
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub enum MaterialIdentifierElement {
@@ -26,6 +26,17 @@ impl From<String> for MaterialIdentifier {
 impl From<Vec<MaterialIdentifierElement>> for MaterialIdentifier {
     fn from(v: Vec<MaterialIdentifierElement>) -> Self {
         Self(v.into_boxed_slice())
+    }
+}
+
+impl Debug for MaterialIdentifier{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut dt = f.debug_tuple("");
+        for x in self.0.iter(){
+            dt.field(x);
+        }
+
+        dt.finish()
     }
 }
 

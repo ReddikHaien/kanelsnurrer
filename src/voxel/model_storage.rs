@@ -126,7 +126,7 @@ impl ModelStorage {
 
                 switch(input.id){{
                     case 0u:{{
-                        return vec4<f32>(0.4,0.6,0.4,1.0);
+                        return vec4<f32>(input.corner,1.0);
                     }}
                     {}
                     default: {{
