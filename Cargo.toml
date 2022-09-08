@@ -11,3 +11,9 @@ df-rust = { git="https://github.com/ReddikHaien/df-rust.git", rev="6bcf2e8" }
 ron = "0.8"
 serde = { version = "1", features = ["derive"] }
 futures-lite = "1.12.0"
+model_system = {path = "./model_system"}
+
+[workspace]
+members = [
+    "./model_system"
+]

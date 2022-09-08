@@ -1,0 +1,10 @@
+{
+    "shape_kinds": {
+        "Wall": {
+            "visibility": {
+                "all": "Solid"
+            },
+            "model": []
+        }
+    }
+}
