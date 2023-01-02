@@ -1,19 +1,17 @@
 use bevy::{
     prelude::{
-        default, shape::Cube, Assets, Commands, Entity, EventReader, Handle, IVec3,
-        MaterialMeshBundle, Mesh, Query, Res, ResMut, Transform, With,
+        default, Assets, Commands, Entity, Handle, IVec3,
+        MaterialMeshBundle, Mesh, Query, Res, ResMut, Transform, StandardMaterial,
     },
-    render::mesh::VertexAttributeValues, utils::futures,
 };
-use df_rust::clients::remote_fortress_reader::remote_fortress_reader::{BlockList, MapBlock};
+use df_rust::clients::remote_fortress_reader::remote_fortress_reader::MapBlock;
 use futures_lite::future;
 
 use crate::{
     voxel::{material::VoxelMaterial, model_storage::ModelStorage},
     world::{
-        tile::{material_identifier::MaterialIdentifier, Tile},
-        ChunkComponent, World, meshing::build_mesh, MaterialRegistry,
-    },
+        tile::Tile, World, meshing::build_mesh, MaterialRegistry,
+    }, loaders::model_loader::ModelLoadingData,
 };
 
 use super::chunk_loading::LoadData;
@@ -90,9 +88,17 @@ pub fn handle_loading(
     mesh_query: Query<(Entity, &mut Handle<Mesh>)>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut world: ResMut<World>,
-    mut materials: ResMut<Assets<VoxelMaterial>>,
-    mut material_registry: Res<MaterialRegistry>
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut material_registry: Res<MaterialRegistry>,
+    model_storage: Res<ModelStorage>,
+    model_data: Res<ModelLoadingData>
 ){
+
+    let material = materials.add(StandardMaterial{
+        base_color_texture: Some(model_data.atlas_handle.clone()),
+        ..default()
+    });
+
     for (entity, mut data) in &mut query{
         if let Some(event) = future::block_on(future::poll_once(&mut data.0)){
 
@@ -138,9 +144,9 @@ pub fn handle_loading(
                 Err(_) => {
                     let handle = meshes.add(Mesh::new(bevy::render::render_resource::PrimitiveTopology::TriangleList));
                     commands.entity(entity)
-                    .insert_bundle(MaterialMeshBundle{
+                    .insert(MaterialMeshBundle{
                         mesh: handle.clone(),
-                        material: materials.add(VoxelMaterial{}),
+                        material: material.clone(),
                         transform: Transform::from_xyz((pos.x * 16) as f32, (pos.y * 16) as f32, (pos.z * 16) as f32),
                         ..default()
                     });
@@ -155,7 +161,8 @@ pub fn handle_loading(
                 mesh,
                 &chunk,
                 &world,
-                &material_registry
+                &material_registry,
+                &model_storage
             );
             commands.entity(entity).remove::<LoadData>();
             println!("Removed LoadData for {}",pos)

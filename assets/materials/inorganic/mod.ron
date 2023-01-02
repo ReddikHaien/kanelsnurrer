@@ -1,0 +1,6 @@
+[
+    Params({
+        "all": "textures/rock_unknown.png",
+    }),
+    Inherit("assets/materials/mod.ron")
+]

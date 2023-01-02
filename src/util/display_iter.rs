@@ -7,7 +7,7 @@ struct DisplayIter<I, S> {
 
 impl<I, S> DisplayIter<I, S> {
     pub(crate) fn new(i: I, s: S) -> Self {
-        Self { i: i, s }
+        Self { i, s }
     }
 }
 

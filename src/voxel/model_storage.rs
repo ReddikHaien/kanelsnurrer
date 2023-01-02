@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use bevy::prelude::{Assets, ResMut, Shader};
+use bevy::prelude::{Assets, ResMut, Shader, Resource};
 
 use crate::{
     util::display_iter::DisplayableExt,
@@ -11,6 +11,7 @@ use crate::{
 
 use super::{material::VOXEL_SHADER_HANDLE, ModelEntry};
 
+#[derive(Resource)]
 pub struct ModelStorage {
     models: Vec<ModelEntry>,
 
@@ -27,6 +28,11 @@ impl ModelStorage {
 
     pub fn get_model_id(&self, id: &MaterialIdentifier) -> u32 {
         self.identifiers.get_id(id)
+    }
+
+    pub fn get_model(&self, id: &MaterialIdentifier) -> Option<&ModelEntry>{
+        let id = self.get_model_id(id) as usize;
+        self.models.get(id)
     }
 
     pub fn add_model(&mut self, model: ModelEntry, identifier: &Vec<MaterialIdentifierElement>) {

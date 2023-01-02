@@ -4,6 +4,8 @@ use df_rust::clients::remote_fortress_reader::remote_fortress_reader::{
     MatPair, Tiletype, TiletypeMaterial, TiletypeShape, TiletypeSpecial, TiletypeVariant,
 };
 
+use super::Matpair;
+
 #[derive(Debug)]
 pub struct FixedTiletype {
     pub id: i32,
@@ -29,21 +31,6 @@ impl From<Tiletype> for FixedTiletype {
             shape,
             special,
             variant,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Matpair {
-    type_: i32,
-    index: i32,
-}
-
-impl From<MatPair> for Matpair {
-    fn from(x: MatPair) -> Self {
-        Self {
-            index: x.mat_index,
-            type_: x.mat_type,
         }
     }
 }

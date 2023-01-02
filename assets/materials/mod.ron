@@ -1,0 +1,21 @@
+[
+    Params({
+        "all": "textures/missing.png"
+    }),
+    Params({
+        "sides": "#all"
+    }),
+    Params({
+        "top": "#all",
+        "bottom": "#all",
+        "left": "#sides",
+        "right": "#sides",
+        "front": "#sides",
+        "back": "#sides"
+    }),
+    Face(
+        n: Up, 
+        p: Some((0.0,1.0,0.0)), 
+        t: (src: "top")
+    )
+]

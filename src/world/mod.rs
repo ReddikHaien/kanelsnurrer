@@ -1,7 +1,9 @@
 use std::collections::{btree_map::Entry, BTreeMap};
 
-use bevy::prelude::{Component, Entity, FromWorld};
+use bevy::prelude::{Component, Entity, FromWorld, Resource};
 use df_rust::clients::remote_fortress_reader::{RemoteFortressReader, remote_fortress_reader::{MatPair, TiletypeMaterial, TiletypeShape, TiletypeSpecial, TiletypeVariant, Tiletype}};
+
+use crate::FortressResource;
 
 use self::tile::{Tile, material_identifier::MaterialIdentifier};
 
@@ -9,6 +11,7 @@ pub mod events;
 pub mod tile;
 pub mod meshing;
 
+#[derive(Resource)]
 pub struct World {
     chunks: BTreeMap<(i32, i32, i32), Box<Chunk>>,
 }
@@ -61,7 +64,7 @@ impl Chunk {
 pub struct ChunkComponent;
 
 
-#[derive(Debug,Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug,Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct Matpair{
     pub type_: i32,
     pub index: i32,
@@ -111,6 +114,7 @@ impl From<Tiletype> for FixedTiletype{
     }
 }
 
+#[derive(Resource)]
 pub struct MaterialRegistry{
     matdefs: BTreeMap<Matpair, MaterialDef>,
     tiletypes: Vec<FixedTiletype>
@@ -125,8 +129,8 @@ impl MaterialRegistry{
 
 impl FromWorld for MaterialRegistry{
     fn from_world(world: &mut bevy::prelude::World) -> Self {
-        let mut client = world.get_resource_mut::<RemoteFortressReader>().unwrap();
-        let matdefs: BTreeMap<Matpair, MaterialDef> = client.get_material_list().material_list.into_iter().map(
+        let mut client = world.get_resource_mut::<FortressResource>().unwrap();
+        let matdefs: BTreeMap<Matpair, MaterialDef> = client.0.get_material_list().material_list.into_iter().map(
             |x|{
                 let id = x.id.map(
                     |y|
@@ -143,7 +147,7 @@ impl FromWorld for MaterialRegistry{
             }
         ).collect();
 
-        let tiletypes = client.get_tile_type_list().tiletype_list.into_iter().map(|x| x.into()).collect();
+        let tiletypes = client.0.get_tile_type_list().tiletype_list.into_iter().map(|x| x.into()).collect();
 
         Self {
             matdefs,

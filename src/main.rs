@@ -6,7 +6,7 @@ pub mod world;
 use bevy::{
     prelude::{
         default, App, Assets, Camera3dBundle, Commands, EventWriter,
-        Handle, IVec3, MaterialPlugin, Mesh, Query, Res, ResMut, SystemSet, Transform, Vec3, With, Camera, Input, KeyCode,
+        Handle, IVec3, MaterialPlugin, Mesh, Query, Res, ResMut, SystemSet, Transform, Vec3, With, Camera, Input, KeyCode, Resource, ImagePlugin,
     },
     DefaultPlugins,
 };
@@ -30,9 +30,10 @@ pub enum AppState {
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
+        .add_plugin(ImagePlugin::default_nearest())
         .add_plugin(MaterialPlugin::<VoxelMaterial>::default())
         .insert_resource(ModelStorage::new())
-        .insert_resource(RemoteFortressReader::new(Some("127.0.0.1:5000")))
+        .insert_resource(FortressResource(RemoteFortressReader::new(Some("127.0.0.1:5000"))))
         .add_state(AppState::Setup)
         .insert_resource(World::new())
         .init_resource::<MaterialRegistry>()
@@ -57,15 +58,18 @@ fn rotator(mut query: Query<(&mut Transform, With<Handle<Mesh>>)>) {
     }
 }
 
+#[derive(Resource)]
+pub struct FortressResource(pub RemoteFortressReader);
+
 fn startup_system(
-    mut client: ResMut<RemoteFortressReader>,
+    mut client: ResMut<FortressResource>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<VoxelMaterial>>,
     mut writer: EventWriter<ChunkLoadEvent>,
     models: Res<ModelStorage>,
 ) {
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-10.0, 185.0, -10.0).looking_at(Vec3::new(0.0, 180.0, 0.0), Vec3::Y),
         ..default()
     });
@@ -99,7 +103,7 @@ fn startup_system(
     //     ..default()
     // });
 
-    client.reset_map_hashes();
+    client.0.reset_map_hashes();
 
     // let mats = client.get_material_list().material_list.into_iter().map(
     //     |x|
@@ -109,13 +113,13 @@ fn startup_system(
     //     )
     // ).collect::<Vec<_>>();
 
-    let info = client.get_map_info();
+    let info = client.0.get_map_info();
 
     for x in 0..info.block_size_x() {
         for y in 0..info.block_size_y() {
             for z in (0..info.block_size_z()).step_by(16) {
                 writer.send(ChunkLoadEvent {
-                    entity: commands.spawn().id(),
+                    entity: commands.spawn_empty().id(),
                     map_pos: IVec3::new(x, y, z),
                 });
             }
