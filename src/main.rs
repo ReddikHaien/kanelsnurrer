@@ -11,7 +11,7 @@ use bevy::{
     DefaultPlugins,
 };
 use df_rust::clients::remote_fortress_reader::RemoteFortressReader;
-use voxel::{material::VoxelMaterial, model_storage::ModelStorage};
+use voxel::{material::VoxelMaterial, model_storage::{ModelStorage, ModelRegistry}};
 use world::{
     events::{
         chunk_builder::{ChunkBuildEvent, handle_loading},
@@ -31,7 +31,7 @@ fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_plugin(MaterialPlugin::<VoxelMaterial>::default())
-        .insert_resource(ModelStorage::new())
+        .insert_resource(ModelRegistry::new())
         .insert_resource(FortressResource(RemoteFortressReader::new(Some("127.0.0.1:5000"))))
         .add_state(AppState::Setup)
         .insert_resource(World::new())
@@ -66,7 +66,7 @@ fn startup_system(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<VoxelMaterial>>,
     mut writer: EventWriter<ChunkLoadEvent>,
-    models: Res<ModelStorage>,
+    models: Res<ModelRegistry>,
 ) {
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-10.0, 185.0, -10.0).looking_at(Vec3::new(0.0, 180.0, 0.0), Vec3::Y),
@@ -152,17 +152,17 @@ fn camera_mover(
         let fw = transform.forward();
         let r = transform.right();
         if input.pressed(KeyCode::W){
-            transform.translation += fw * 10.0;
+            transform.translation += fw * 2.0;
         }
         if input.pressed(KeyCode::S){
-            transform.translation += fw * -10.0;
+            transform.translation += fw * -2.0;
         }
 
         if input.pressed(KeyCode::A){
-            transform.translation += r * 10.0;
+            transform.translation += r * -2.0;
         }
         if input.pressed(KeyCode::D){
-            transform.translation += r * -10.0;
+            transform.translation += r * 2.0;
         }
     }
 }

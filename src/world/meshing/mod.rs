@@ -1,16 +1,16 @@
 use bevy::{prelude::{Mesh, Vec3, IVec3, Vec2}, render::mesh::Indices};
 use df_rust::clients::remote_fortress_reader::remote_fortress_reader::TiletypeShape;
 
-use crate::voxel::model_storage::ModelStorage;
+use crate::voxel::model_storage::{ModelStorage, ModelRegistry};
 
-use super::{MaterialRegistry, World, Chunk};
+use super::{MaterialRegistry, World, Chunk, Matpair};
 
 pub fn build_mesh(
     mesh: &mut Mesh,
     chunk: &Chunk,
     world: &World,
     registry: &MaterialRegistry,
-    models: &ModelStorage){
+    models: &ModelRegistry){
     let mut verts = Vec::<Vec3>::new();
     let mut uvs = Vec::<Vec2>::new();
     let mut normals = Vec::<Vec3>::new();
@@ -24,18 +24,30 @@ pub fn build_mesh(
                 if !tile.hidden{
                     let pos = IVec3::new(x,y,z).as_vec3();
                     let type_ = registry.get_tiletype(tile);
-                    if type_.shape == TiletypeShape::Floor{
-                        let mat_pair = &tile.base_mat;
-                        let def = registry.matdefs.get(mat_pair).unwrap();
-                        let id = def.id.as_ref().unwrap();
-                        let model = models.get_model(id).unwrap();
+                    let mat_pair = &tile.base_mat;
+                    let Some(def) = registry.matdefs.get(mat_pair)
+                        else{
+                            continue;
+                        };
+                    let id = def.id.as_ref().unwrap();
+                    let Some(model) = models.get_model(id, type_.shape) else{ continue; };
+                    
+                    let mask = chunk.get_mask(x, y, z, &registry);
 
-                        let c = verts.len();
-                        verts.extend(model.0.verts.iter().map(|x| *x + pos));
-                        uvs.extend(&model.0.uvs);
-                        normals.extend(&model.0.normals);
-                        indices.extend(model.0.indices.iter().map(|x| *x + c as u16))
-                    }
+                    model.0.quads.iter().filter(|x| x.cullable().is_visible(mask)).for_each(|x|{
+                        match x {
+                            crate::loaders::model_loader::BakedModel::Quad { verts:v, uvs:u, normal:n, cullable:c } => {
+                                let c = verts.len() as u16;
+                                verts.extend(v.iter().map(|x| *x + pos));
+                                uvs.extend(u);
+                                normals.extend([*n;4]);
+                                indices.extend([
+                                    c + 0u16, c + 2, c + 1,
+                                    c + 2,    c + 3, c + 1
+                                ]);
+                            },
+                        }
+                    });
                 }
             }
         }

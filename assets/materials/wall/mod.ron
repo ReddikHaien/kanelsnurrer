@@ -1,0 +1,52 @@
+[
+    Params({
+        "all": "textures/missing.png"
+    }),
+    Params({
+        "sides": "#all"
+    }),
+    Params({
+        "top": "#all",
+        "bottom": "#all",
+        "left": "#sides",
+        "right": "#sides",
+        "front": "#sides",
+        "back": "#sides"
+    }),
+    Face(
+        n: Up, 
+        p: Some((0.0,0.5,0.0)), 
+        t: (src: "top"),
+        cullable: WhenVisible(Up)
+    ),
+    Face(
+        n: Left,
+        p: Some((0.5,0.0,0.0)),
+        t: (src: "left"),
+        cullable: WhenVisible(Left)
+    ),
+    Face(
+        n: Forward,
+        p: Some((0.0,0.0,0.5)),
+        t: (src: "front"),
+        cullable: WhenVisible(Forward)
+    ),
+    Face(
+        n: Down,
+        p: Some((0.0,-0.5,0.0)),
+        t: (src: "bottom"),
+        cullable: WhenVisible(Down)
+    ),
+    Face(
+        n: Right,
+        p: Some((-0.5, 0.0, 0.0)),
+        t: (src: "right"),
+        cullable: WhenVisible(Right)
+    ),
+    Face(
+        n: Backwards,
+        p: Some((0.0,0.0,-0.5)),
+        t: (src: "back"),
+        cullable: WhenVisible(Backwards)
+    )
+]

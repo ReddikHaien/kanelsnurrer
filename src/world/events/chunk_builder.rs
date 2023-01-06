@@ -8,7 +8,7 @@ use df_rust::clients::remote_fortress_reader::remote_fortress_reader::MapBlock;
 use futures_lite::future;
 
 use crate::{
-    voxel::{material::VoxelMaterial, model_storage::ModelStorage},
+    voxel::{material::VoxelMaterial, model_storage::{ModelStorage, ModelRegistry}},
     world::{
         tile::Tile, World, meshing::build_mesh, MaterialRegistry,
     }, loaders::model_loader::ModelLoadingData,
@@ -89,8 +89,8 @@ pub fn handle_loading(
     mut meshes: ResMut<Assets<Mesh>>,
     mut world: ResMut<World>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut material_registry: Res<MaterialRegistry>,
-    model_storage: Res<ModelStorage>,
+    material_registry: Res<MaterialRegistry>,
+    model_storage: Res<ModelRegistry>,
     model_data: Res<ModelLoadingData>
 ){
 

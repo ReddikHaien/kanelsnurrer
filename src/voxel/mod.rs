@@ -3,7 +3,7 @@ use std::fmt::Display;
 use bevy::prelude::{Vec3, Vec2, Handle, Image};
 use serde::{Deserialize, Serialize};
 
-use crate::util::display_iter::DisplayableExt;
+use crate::{util::display_iter::DisplayableExt, loaders::model_loader::BakedModel};
 
 pub mod material;
 pub mod model_storage;
@@ -14,17 +14,14 @@ pub struct ModelEntry(pub ModelData);
 
 impl Display for ModelEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("verts: {}, indices: {}",self.0.verts.len(),self.0.indices.len()))
+        f.write_fmt(format_args!("quads: {}",self.0.quads.len()))
     }
 }
 
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ModelData{
-    pub verts: Vec<Vec3>,
-    pub uvs: Vec<Vec2>,
-    pub normals: Vec<Vec3>,
-    pub indices: Vec<u16>
+    pub quads: Vec<BakedModel>
 }
 
 #[derive(Debug, Serialize, Deserialize)]

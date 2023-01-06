@@ -3,7 +3,7 @@ use std::collections::{btree_map::Entry, BTreeMap};
 use bevy::prelude::{Component, Entity, FromWorld, Resource};
 use df_rust::clients::remote_fortress_reader::{RemoteFortressReader, remote_fortress_reader::{MatPair, TiletypeMaterial, TiletypeShape, TiletypeSpecial, TiletypeVariant, Tiletype}};
 
-use crate::FortressResource;
+use crate::{FortressResource, loaders::model_loader::Direction};
 
 use self::tile::{Tile, material_identifier::MaterialIdentifier};
 
@@ -57,6 +57,55 @@ impl Chunk {
 
     pub fn tile_ref(&self, x: i32, y: i32, z: i32) -> &Tile{
         &self.tiles[(x + y * 16 + z * 256) as usize]
+    }
+
+    pub fn get_mask(&self, x: i32, y: i32, z: i32, registry: &MaterialRegistry) -> u8{
+        let up = self.is_solid(x, y+1, z, Direction::Up, registry);
+        let down = self.is_solid(x, y-1, z, Direction::Down, registry);
+        let left = self.is_solid(x+1, y, z, Direction::Left, registry);
+        let right = self.is_solid(x-1, y, z, Direction::Right, registry);
+        let forward = self.is_solid(x, y, z+1, Direction::Forward, registry);
+        let backward = self.is_solid(x, y, z-1, Direction::Backwards, registry);
+
+        ((up as u8)      << 5) |
+        ((down as u8)    << 4) |
+        ((left as u8)    << 3) |
+        ((right as u8)   << 2) |
+        ((forward as u8) << 1) |
+        ((backward as u8))
+    }
+
+    pub fn is_solid(&self, x: i32, y: i32, z: i32, direction: Direction, registry: &MaterialRegistry) -> bool{
+        if x < 0 || x >= 16 || y < 0 || y >= 16 || z < 0 || z >= 16{
+            false
+        }
+        else{
+            let tile = self.tile_ref(x, y, z);
+            let type_ = registry.get_tiletype(tile);
+            tile.hidden || match type_.shape {
+                TiletypeShape::Sapling |
+                TiletypeShape::Shrub |
+                TiletypeShape::EndlessPit |
+                TiletypeShape::NoShape |
+                TiletypeShape::Empty => false,
+                TiletypeShape::Boulder |
+                TiletypeShape::Pebbles |
+                TiletypeShape::Floor => direction == Direction::Up,
+                TiletypeShape::Fortification |
+                TiletypeShape::StairUp |
+                TiletypeShape::StairDown |
+                TiletypeShape::StairUpdown |
+                TiletypeShape::Ramp |
+                TiletypeShape::RampTop |
+                TiletypeShape::BrookBed |
+                TiletypeShape::BrookTop |
+                TiletypeShape::TreeShape |
+                TiletypeShape::Branch |
+                TiletypeShape::TrunkBranch |
+                TiletypeShape::Twig |
+                TiletypeShape::Wall => true,
+            }
+        }
     }
 }
 

@@ -1,6 +1,7 @@
 use std::fmt::{Display, Debug};
 
 use bevy::prelude::{Assets, ResMut, Shader, Resource};
+use df_rust::clients::remote_fortress_reader::remote_fortress_reader::TiletypeShape;
 
 use crate::{
     util::display_iter::DisplayableExt,
@@ -12,26 +13,39 @@ use crate::{
 use super::{material::VOXEL_SHADER_HANDLE, ModelEntry};
 
 #[derive(Resource)]
+pub struct ModelRegistry{
+    pub floor_storage: ModelStorage,
+    pub wall_storage: ModelStorage,
+}
+
+impl ModelRegistry{
+    pub fn new() -> Self{
+        Self{
+            floor_storage: ModelStorage::new(),
+            wall_storage: ModelStorage::new(),
+        }
+    }
+
+    pub fn get_model_id(&self, id: &MaterialIdentifier, shape: TiletypeShape) -> u32 {
+        match shape {
+            TiletypeShape::Floor => self.floor_storage.get_model_id(id),
+            TiletypeShape::Wall => self.wall_storage.get_model_id(id),
+            _ => 0
+        }
+    }
+
+    pub fn get_model(&self, id: &MaterialIdentifier, shape: TiletypeShape) -> Option<&ModelEntry>{
+        match shape {
+            TiletypeShape::Floor => self.floor_storage.get_model(id),
+            TiletypeShape::Wall => self.wall_storage.get_model(id),
+            _ => None
+        }
+    }
+}
 pub struct ModelStorage {
     models: Vec<ModelEntry>,
 
     identifiers: MaterialIdentifierStorage,
-}
-
-impl Debug for ModelStorage{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.print_tree();
-
-
-        let mut map = f.debug_map();
-        
-        for (i,m) in self.models.iter().enumerate(){
-            map.entry(&(i+1),&m.0.uvs);
-        }
-
-        map.finish()?;
-        Ok(())
-    }
 }
 
 impl ModelStorage {
