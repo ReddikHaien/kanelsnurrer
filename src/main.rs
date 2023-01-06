@@ -6,7 +6,7 @@ pub mod world;
 use bevy::{
     prelude::{
         default, App, Assets, Camera3dBundle, Commands, EventWriter,
-        Handle, IVec3, MaterialPlugin, Mesh, Query, Res, ResMut, SystemSet, Transform, Vec3, With, Camera, Input, KeyCode, Resource, ImagePlugin,
+        Handle, IVec3, MaterialPlugin, Mesh, Query, Res, ResMut, SystemSet, Transform, Vec3, With, Camera, Input, KeyCode, Resource, ImagePlugin, PluginGroup,
     },
     DefaultPlugins,
 };
@@ -29,8 +29,7 @@ pub enum AppState {
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins)
-        .add_plugin(ImagePlugin::default_nearest())
+    app.add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_plugin(MaterialPlugin::<VoxelMaterial>::default())
         .insert_resource(ModelStorage::new())
         .insert_resource(FortressResource(RemoteFortressReader::new(Some("127.0.0.1:5000"))))

@@ -15,7 +15,6 @@ pub fn build_mesh(
     let mut uvs = Vec::<Vec2>::new();
     let mut normals = Vec::<Vec3>::new();
     let mut indices = Vec::<u16>::new();
-    let mut fcount = 0;
 
     for x in 0..16{
         for y in 0..16{
@@ -27,9 +26,10 @@ pub fn build_mesh(
                     let type_ = registry.get_tiletype(tile);
                     if type_.shape == TiletypeShape::Floor{
                         let mat_pair = &tile.base_mat;
-                        let def = registry.matdefs.get(mat_pair);
-                        let model = models.get_model(def.unwrap().id.as_ref().unwrap()).unwrap();
-                        
+                        let def = registry.matdefs.get(mat_pair).unwrap();
+                        let id = def.id.as_ref().unwrap();
+                        let model = models.get_model(id).unwrap();
+
                         let c = verts.len();
                         verts.extend(model.0.verts.iter().map(|x| *x + pos));
                         uvs.extend(&model.0.uvs);

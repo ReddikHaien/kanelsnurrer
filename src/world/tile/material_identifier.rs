@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Debug};
+use std::{collections::BTreeMap, fmt::Debug, borrow::Borrow};
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub enum MaterialIdentifierElement {
@@ -7,7 +7,9 @@ pub enum MaterialIdentifierElement {
 
 impl<T: Into<String>> From<T> for MaterialIdentifierElement {
     fn from(s: T) -> Self {
-        Self::Custom(s.into())
+        let mut s: String = s.into();
+        s.make_ascii_uppercase();
+        Self::Custom(s)
     }
 }
 
@@ -59,7 +61,7 @@ impl MaterialIdentifierStorage {
     }
 
     pub fn set_id(&mut self, identifier: &MaterialIdentifier, value: u32) {
-        self.storage.set(identifier, 0, value);
+        self.storage.set(&identifier.0, value);
     }
 
     pub fn print_tree(&self) {
@@ -116,17 +118,19 @@ impl StoragEntry {
         }
     }
 
-    fn set(&mut self, identifier: &MaterialIdentifier, index: usize, value: u32) {
+    fn set(&mut self, identifier: &[MaterialIdentifierElement], value: u32) {
+
+        println!("remaining: {:?}", identifier);
         match self {
             StoragEntry::Leaf(id) => {
-                if identifier.0.len() <= index {
+                if identifier.len() == 0 {
                     *id = value;
                 } else {
                     let mut children = BTreeMap::new();
 
                     children.insert(
-                        identifier.0[index].clone(),
-                        Self::determine_node_type(identifier.0.len(), index),
+                        identifier[0].clone(),
+                        Self::determine_node_type(identifier.len()),
                     );
 
                     *self = StoragEntry::Branch {
@@ -140,19 +144,18 @@ impl StoragEntry {
                 default_model,
             } => {
                 //If this is our last stop, assign the default model
-                if identifier.0.len() <= index {
+                if identifier.len() == 0 {
                     *default_model = value
                 } else {
-                    match children.get_mut(&identifier.0[index]) {
-                        Some(x) => x.set(identifier, index + 1, value),
+                    match children.get_mut(&identifier[0]) {
+                        Some(x) => x.set(&identifier[1..], value),
                         None => {
                             children.insert(
-                                identifier.0[index].clone(),
-                                Self::determine_node_type(identifier.0.len(), index),
+                                identifier[0].clone(),
+                                Self::determine_node_type(identifier.len()),
                             );
-                            children.get_mut(&identifier.0[index]).unwrap().set(
-                                identifier,
-                                index + 1,
+                            children.get_mut(&identifier[0]).unwrap().set(
+                                &identifier[1..],
                                 value,
                             );
                         }
@@ -162,8 +165,8 @@ impl StoragEntry {
         }
     }
 
-    fn determine_node_type(left: usize, index: usize) -> StoragEntry {
-        if left - index >= 2 {
+    fn determine_node_type(left: usize) -> StoragEntry {
+        if left >= 2 {
             StoragEntry::Branch {
                 children: BTreeMap::new(),
                 default_model: 0,

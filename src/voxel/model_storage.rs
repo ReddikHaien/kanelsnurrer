@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Display, Debug};
 
 use bevy::prelude::{Assets, ResMut, Shader, Resource};
 
@@ -18,6 +18,22 @@ pub struct ModelStorage {
     identifiers: MaterialIdentifierStorage,
 }
 
+impl Debug for ModelStorage{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.print_tree();
+
+
+        let mut map = f.debug_map();
+        
+        for (i,m) in self.models.iter().enumerate(){
+            map.entry(&(i+1),&m.0.uvs);
+        }
+
+        map.finish()?;
+        Ok(())
+    }
+}
+
 impl ModelStorage {
     pub fn new() -> Self {
         Self {
@@ -32,7 +48,7 @@ impl ModelStorage {
 
     pub fn get_model(&self, id: &MaterialIdentifier) -> Option<&ModelEntry>{
         let id = self.get_model_id(id) as usize;
-        self.models.get(id)
+        self.models.get(id-1)
     }
 
     pub fn add_model(&mut self, model: ModelEntry, identifier: &Vec<MaterialIdentifierElement>) {

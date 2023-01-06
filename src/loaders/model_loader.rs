@@ -215,7 +215,7 @@ pub(super) fn bake_models(
                     let off = rect.min / atlas.size;
                     let size = (rect.max - rect.min) / atlas.size;
 
-
+                    println!("{}: {:?} => {} {}",t.0, texture_handle, off, size);
                     
                     verts.extend(vs);
                     uvs.extend(us.into_iter().map(|uv| uv*size + off));
@@ -237,12 +237,17 @@ pub(super) fn bake_models(
         };
 
         storage.add_model(ModelEntry(data), &name);
-
-        info.loaded += 1;
     }
+
+    println!("{:#?}",storage.as_ref());
+
+    info.loaded += 1;
 }
 
 fn into_material_name(path: PathBuf) -> Vec<MaterialIdentifierElement>{
+
+    println!("{}",path.display());
+    let path = path.strip_prefix("assets/materials").unwrap();
 
     let mut out = Vec::new();
     for x in path.iter(){
@@ -252,6 +257,7 @@ fn into_material_name(path: PathBuf) -> Vec<MaterialIdentifierElement>{
         }
     }
 
+    println!("{:?}",out);
     out
 
 }
