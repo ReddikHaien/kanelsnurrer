@@ -65,6 +65,7 @@ pub enum MeshElement<'a>{
         HashMap<&'a str, &'a str>
     ),
     Inherit(&'a str),
+    Transparent(bool),
     Face{
         n: Direction,
         s: Option<(f32, f32)>,
@@ -148,8 +149,8 @@ impl BakedModel{
 
 #[derive(Resource, Default)]
 pub struct ModelLoadingData{
-    floor_cache: HashMap<PathBuf,Vec<PreBakedModel>>,
-    wall_cache: HashMap<PathBuf,Vec<PreBakedModel>>,
+    floor_cache: HashMap<PathBuf,(Vec<PreBakedModel>,bool)>,
+    wall_cache: HashMap<PathBuf,(Vec<PreBakedModel>,bool)>,
     pub atlas_handle: Handle<Image>,
     handlers: Vec<Handle<Image>>,
 }
@@ -197,7 +198,7 @@ fn load_models(
     model_data.handlers = textures;
 }
 
-fn load_folder(path: &str, textures: &mut Vec<String>, asset_server: &AssetServer)-> bevy::utils::hashbrown::HashMap<PathBuf, Vec<PreBakedModel>> {
+fn load_folder(path: &str, textures: &mut Vec<String>, asset_server: &AssetServer)-> bevy::utils::hashbrown::HashMap<PathBuf, (Vec<PreBakedModel>, bool)> {
     let mut file_cache = HashMap::new();
 
     let mut materials = Vec::new();
@@ -220,7 +221,7 @@ fn load_folder(path: &str, textures: &mut Vec<String>, asset_server: &AssetServe
         }
     }
 
-    let file_cache = file_cache.into_iter().map(|(path, (vars, mut models))|{
+    let file_cache = file_cache.into_iter().map(|(path, (vars, mut models, transparent))|{
         for x in &mut models{
             match x {
                 PreBakedModel::Face { n, s, p, r, t, cullable } => {
@@ -234,8 +235,8 @@ fn load_folder(path: &str, textures: &mut Vec<String>, asset_server: &AssetServe
             }
         }
 
-        (path, models)
-    }).collect::<HashMap<PathBuf,Vec<PreBakedModel>>>();
+        (path, (models, transparent))
+    }).collect::<HashMap<PathBuf,(Vec<PreBakedModel>, bool)>>();
 
     println!("{:#?}",textures);
     println!("{:#?}",file_cache);
@@ -273,11 +274,11 @@ pub(super) fn bake_models(
     info.loaded += 1;
 }
 
-fn build_storage(cache: HashMap<PathBuf, Vec<PreBakedModel>>, atlas: &TextureAtlas, handlers: &[Handle<Image>], path_root: &str) -> ModelStorage{
+fn build_storage(cache: HashMap<PathBuf, (Vec<PreBakedModel>, bool)>, atlas: &TextureAtlas, handlers: &[Handle<Image>], path_root: &str) -> ModelStorage{
 
     let mut storage = ModelStorage::new();
 
-    for (path, model) in cache{
+    for (path, (model, transparent)) in cache{
         let mut quads = Vec::new();
 
         for x in model{
@@ -309,6 +310,7 @@ fn build_storage(cache: HashMap<PathBuf, Vec<PreBakedModel>>, atlas: &TextureAtl
         let name = into_material_name(path, path_root);
         
         let data = ModelData{
+            transparent,
             quads,
         };
 
@@ -388,7 +390,7 @@ fn solve_variable(vars: &Vec<(String, String)>, textures: &mut Vec<String>, star
     texture_index
 }
 
-fn load_model(file_cache: &mut HashMap<PathBuf,(Vec<(String,String)>,Vec<PreBakedModel>)>, path: PathBuf){
+fn load_model(file_cache: &mut HashMap<PathBuf,(Vec<(String,String)>,Vec<PreBakedModel>, bool)>, path: PathBuf){
     println!("reading {:?}",path.as_os_str());
     let source = fs::read_to_string(&path).unwrap();
     let raw_model: Vec<MeshElement> = ron::from_str(&source).unwrap();
@@ -397,8 +399,14 @@ fn load_model(file_cache: &mut HashMap<PathBuf,(Vec<(String,String)>,Vec<PreBake
 
     let mut variables = Vec::new();
 
+    let mut transparent = false;
+
     for x in raw_model{
         match x{
+            MeshElement::Transparent(t) => {
+                transparent = t;
+            }
+
             MeshElement::Params(vars) => {
                 for (key, value) in vars{
                     variables.push((key.to_owned(), value.to_owned()));
@@ -508,5 +516,5 @@ fn load_model(file_cache: &mut HashMap<PathBuf,(Vec<(String,String)>,Vec<PreBake
         }
     }
 
-    file_cache.insert(path, (variables,prebaked));
+    file_cache.insert(path, (variables,prebaked, transparent));
 }

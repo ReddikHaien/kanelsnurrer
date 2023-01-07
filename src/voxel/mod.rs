@@ -21,7 +21,8 @@ impl Display for ModelEntry {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ModelData{
-    pub quads: Vec<BakedModel>
+    pub quads: Vec<BakedModel>,
+    pub transparent: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
