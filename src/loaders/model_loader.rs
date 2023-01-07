@@ -327,7 +327,13 @@ fn into_material_name(path: PathBuf, root: &str) -> Vec<MaterialIdentifierElemen
     for x in path.iter(){
         let s = x.to_string_lossy();
         if s != "mod.ron"{
-            out.push(MaterialIdentifierElement::from(s.to_owned()));
+            let s = if s.ends_with(".ron"){
+                s.strip_suffix(".ron").unwrap().to_owned()
+            }
+            else{
+                s.to_string()
+            };
+            out.push(MaterialIdentifierElement::from(s));
         }
     }
 

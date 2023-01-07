@@ -1,5 +1,5 @@
-use std::collections::{btree_map::Entry, BTreeMap};
-
+use std::{collections::{btree_map::Entry, BTreeMap}, fs::File};
+use std::io::Write;
 use bevy::prelude::{Component, Entity, FromWorld, Resource};
 use df_rust::clients::remote_fortress_reader::{RemoteFortressReader, remote_fortress_reader::{MatPair, TiletypeMaterial, TiletypeShape, TiletypeSpecial, TiletypeVariant, Tiletype}};
 
@@ -197,7 +197,7 @@ impl FromWorld for MaterialRegistry{
         ).collect();
 
         let tiletypes = client.0.get_tile_type_list().tiletype_list.into_iter().map(|x| x.into()).collect();
-
+        
         Self {
             matdefs,
             tiletypes
