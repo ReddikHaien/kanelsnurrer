@@ -88,6 +88,7 @@ impl Chunk {
                 TiletypeShape::EndlessPit |
                 TiletypeShape::NoShape |
                 TiletypeShape::Empty => false,
+                
                 TiletypeShape::Boulder |
                 TiletypeShape::Pebbles |
                 TiletypeShape::Floor => direction == Direction::Up,

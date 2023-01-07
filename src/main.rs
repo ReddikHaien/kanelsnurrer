@@ -6,7 +6,7 @@ pub mod world;
 use bevy::{
     prelude::{
         default, App, Assets, Camera3dBundle, Commands, EventWriter,
-        Handle, IVec3, MaterialPlugin, Mesh, Query, Res, ResMut, SystemSet, Transform, Vec3, With, Camera, Input, KeyCode, Resource, ImagePlugin, PluginGroup,
+        Handle, IVec3, MaterialPlugin, Mesh, Query, Res, ResMut, SystemSet, Transform, Vec3, With, Camera, Input, KeyCode, Resource, ImagePlugin, PluginGroup, DirectionalLightBundle,
     },
     DefaultPlugins,
 };
@@ -70,6 +70,11 @@ fn startup_system(
 ) {
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-10.0, 185.0, -10.0).looking_at(Vec3::new(0.0, 180.0, 0.0), Vec3::Y),
+        ..default()
+    });
+
+    commands.spawn(DirectionalLightBundle{
+        transform: Transform::from_xyz(100.0, 100.0, 100.0),
         ..default()
     });
 

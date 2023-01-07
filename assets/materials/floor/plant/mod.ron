@@ -1,0 +1,6 @@
+[
+    Params({
+        "top": "textures/grass.png"
+    }),
+    Inherit("assets/materials/floor/mod.ron")
+]
