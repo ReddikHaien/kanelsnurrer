@@ -1,0 +1,6 @@
+[
+    Params({
+        "top": "textures/rock_salt.png"
+    }),
+    Inherit("assets/materials/floor/mod.ron")
+]

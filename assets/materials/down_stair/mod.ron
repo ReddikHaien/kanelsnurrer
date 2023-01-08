@@ -1,0 +1,10 @@
+[
+    Params({
+        "all": "textures/missing.png"
+    }),
+    MeshImport(
+        src: "assets/models/down_stair.obj",
+        t: (src: "all"),
+        cullable: Never
+    )
+]

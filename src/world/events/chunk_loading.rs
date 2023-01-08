@@ -15,49 +15,6 @@ pub struct ChunkLoadEvent {
     pub map_pos: IVec3,
 }
 
-// pub fn load_chunk_data(
-//     mut events: ResMut<EventQueue<ChunkLoadEvent>>,
-//     clients: Res<ResourcePool<RemoteFortressReader>>,
-//     mut chunk_builder: EventWriter<ChunkBuildEvent>,
-// ) {
-//     let mut i = 0;
-//     while let Some(event) = events.poll() {
-//         i += 1;
-//         let pos = event.map_pos;
-//         let request = BlockRequest {
-//             blocks_needed: Some(4096),
-//             min_x: Some(pos.x),
-//             max_x: Some(pos.x + 1),
-//             min_y: Some(pos.y),
-//             max_y: Some(pos.y + 1),
-//             min_z: Some(pos.z),
-//             max_z: Some(pos.z + 16),
-//         };
-
-//         let mut client_opt = clients.get_instance();
-
-//         while client_opt.is_none() {
-//             sleep(Duration::from_millis(3));
-//             client_opt = clients.get_instance();
-//         }
-
-//         let mut client = client_opt.unwrap();
-
-//         let response = client.get_block_list(request);
-
-       
-//         chunk_builder.send(ChunkBuildEvent {
-//             position: pos,
-//             block: response.map_blocks,
-//         });
-    
-//         //println!("loaded {}", pos);
-//         if i > 10 {
-//             break;
-//         }
-//     }
-// }
-
 
 static REMOTE_CLIENT: Lazy<Mutex<RemoteFortressReader>> = Lazy::new(||{
     Mutex::new(

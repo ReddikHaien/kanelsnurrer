@@ -1,10 +1,10 @@
-use std::{path::{PathBuf, Path}, fs, error::Error, str::FromStr, hash::Hash};
+use std::{path::PathBuf, fs, str::FromStr, hash::Hash};
 
-use bevy::{utils::{HashMap, HashSet, tracing::instrument::WithSubscriber}, prelude::{Vec2, Vec3, Vec4, IVec4, ResMut, AssetServer, Res, Assets, Image, Handle, Resource, App, SystemSet, State, warn}, asset::LoadState, sprite::{TextureAtlasBuilder, TextureAtlas}};
+use bevy::{utils::{HashMap, HashSet}, prelude::{Vec2, Vec3, IVec4, ResMut, AssetServer, Res, Assets, Image, Handle, Resource, App, SystemSet, State, warn}, asset::LoadState, sprite::{TextureAtlasBuilder, TextureAtlas}};
 use serde::{Deserialize, Serialize};
-use walkdir::{WalkDir, DirEntry};
+use walkdir::WalkDir;
 
-use crate::{world::tile::material_identifier::MaterialIdentifierElement, voxel::{model_storage::{ModelStorage, ModelRegistry}, ModelEntry, ModelData}};
+use crate::{world::tile::material_identifier::MaterialIdentifierElement, voxel::{model_storage::{ModelStorage, ModelRegistry}, ModelEntry, ModelData}, util::mesh_loader::load_mesh_file};
 
 use super::LoadingInfo;
 
@@ -75,6 +75,11 @@ pub enum MeshElement<'a>{
         #[serde(default = "Cullable::default")]
         cullable: Cullable
     },
+    MeshImport{
+        src: &'a str,
+        t: Texturing<'a>,
+        cullable: Cullable,
+    },
     Mesh{
         verts: Vec<(f32,f32,f32)>,
         uvs: Vec<(f32, f32)>,
@@ -126,7 +131,8 @@ pub enum PreBakedModel{
         uvs: Vec<Vec2>,
         normals: Vec<Vec3>,
         indices: Vec<u16>,
-        t: (i32, Option<IVec4>)
+        t: (i32, Option<IVec4>),
+        cullable: Cullable,
     }
 }
 #[derive(Debug, Serialize, Deserialize)]
@@ -137,12 +143,19 @@ pub enum BakedModel{
         normal: Vec3,
         cullable: Cullable
     },
+
+    Mesh{
+        data: Vec<(Vec3, Vec2, Vec3)>,
+        indices: Vec<u16>,
+        cullable: Cullable
+    }
 }
 
 impl BakedModel{
     pub fn cullable(&self) -> Cullable{
         match self{
             BakedModel::Quad {cullable,..} => *cullable,
+            BakedModel::Mesh {cullable,.. } => *cullable,
         }
     }
 }
@@ -151,6 +164,9 @@ impl BakedModel{
 pub struct ModelLoadingData{
     floor_cache: HashMap<PathBuf,(Vec<PreBakedModel>,bool)>,
     wall_cache: HashMap<PathBuf,(Vec<PreBakedModel>,bool)>,
+    down_stair_cache: HashMap<PathBuf,(Vec<PreBakedModel>,bool)>,
+    up_down_stair_cache: HashMap<PathBuf,(Vec<PreBakedModel>,bool)>,
+
     pub atlas_handle: Handle<Image>,
     handlers: Vec<Handle<Image>>,
 }
@@ -193,6 +209,9 @@ fn load_models(
 
     model_data.floor_cache = load_folder("assets/materials/floor", &mut textures, &asset_server);
     model_data.wall_cache = load_folder("assets/materials/wall", &mut textures, &asset_server);
+    model_data.down_stair_cache = load_folder("assets/materials/down_stair", &mut textures, &asset_server);
+    model_data.up_down_stair_cache = load_folder("assets/materials/up_down_stair", &mut textures, &asset_server);
+
 
     let textures = textures.into_iter().map(|x| asset_server.load::<Image,_>(x)).collect::<Vec<_>>();
     model_data.handlers = textures;
@@ -228,7 +247,7 @@ fn load_folder(path: &str, textures: &mut Vec<String>, asset_server: &AssetServe
                     let texture = solve_variable(&vars, textures, t.0 as usize);
                     t.0 = texture as i32;
                 },
-                PreBakedModel::Mesh { verts, uvs, normals, indices, t } => {
+                PreBakedModel::Mesh { verts, uvs, normals, indices, t, cullable } => {
                     let texture = solve_variable(&vars, textures, t.0 as usize);
                     t.0 = texture as i32;    
                 },
@@ -270,6 +289,8 @@ pub(super) fn bake_models(
 
     registry.floor_storage = build_storage(std::mem::take(&mut model_data.floor_cache), &atlas, &model_data.handlers, "assets/materials/floor");
     registry.wall_storage = build_storage(std::mem::take(&mut model_data.wall_cache), &atlas, &model_data.handlers, "assets/materials/wall");
+    registry.down_stair_storage = build_storage(std::mem::take(&mut model_data.down_stair_cache), &atlas, &model_data.handlers, "assets/materials/down_stair");
+    registry.up_down_stair_storage = build_storage(std::mem::take(&mut model_data.up_down_stair_cache), &atlas, &model_data.handlers, "assets/materials/up_down_stair");
 
     info.loaded += 1;
 }
@@ -303,7 +324,26 @@ fn build_storage(cache: HashMap<PathBuf, (Vec<PreBakedModel>, bool)>, atlas: &Te
                         cullable,
                     });
                 },
-                PreBakedModel::Mesh { verts, uvs, normals, indices, t } => todo!("mesh models not added yet"),
+                PreBakedModel::Mesh { verts, uvs, normals, indices, t, cullable } => {
+                    let texture_handle = &handlers[t.0 as usize];
+                    let index = atlas.get_texture_index(texture_handle).unwrap();
+                    let rect = atlas.textures[index];
+
+                    let off = rect.min / atlas.size;
+                    let size = (rect.max - rect.min) / atlas.size;
+
+                    let mut data = Vec::new();
+        
+                    for ((vert, uv), normal) in verts.into_iter().zip(uvs.into_iter().map(|x| x*size + off)).zip(normals.into_iter()){
+                        data.push((vert, uv, normal));
+                    }
+
+                    quads.push(BakedModel::Mesh{
+                        indices,
+                        cullable,
+                        data
+                    })
+                },
             }
         }
 
@@ -311,7 +351,7 @@ fn build_storage(cache: HashMap<PathBuf, (Vec<PreBakedModel>, bool)>, atlas: &Te
         
         let data = ModelData{
             transparent,
-            quads,
+            models: quads,
         };
 
         storage.add_model(ModelEntry(data), &name);
@@ -446,7 +486,7 @@ fn load_model(file_cache: &mut HashMap<PathBuf,(Vec<(String,String)>,Vec<PreBake
                                 cullable: *cullable
                             });
                         },
-                        PreBakedModel::Mesh { verts, uvs, normals, indices, t } => {
+                        PreBakedModel::Mesh { verts, uvs, normals, indices, t, cullable } => {
                             let var_key = &parent.0[t.0 as usize].0;
                             let mut t = (-1, t.1);
                             if let Some ((index,_)) = variables.iter().enumerate().find(|(_, (key,_))| key == var_key){
@@ -458,7 +498,8 @@ fn load_model(file_cache: &mut HashMap<PathBuf,(Vec<(String,String)>,Vec<PreBake
                                 normals: normals.clone(),
                                 uvs: uvs.clone(),
                                 verts: verts.clone(),
-                                t
+                                t,
+                                cullable: *cullable
                             });
                         },
                     }
@@ -489,6 +530,30 @@ fn load_model(file_cache: &mut HashMap<PathBuf,(Vec<(String,String)>,Vec<PreBake
                     cullable
                 });
             },
+
+            MeshElement::MeshImport { src, t, cullable } => {
+                let (verts, uvs, normals, indices) = load_mesh_file(src).unwrap();
+
+                let t = {
+                    let index = variables
+                        .iter()
+                        .enumerate()
+                        .find_map(|x| if x.1.0 == t.src {Some(x.0 as i32)} else {None})
+                        .unwrap_or_else(|| panic!("unreqognized variable {}",t.src));
+
+                    (index,t.clip.map(|(x, y, z, w)| IVec4::new(x as i32, y as i32, z as i32, w as i32)))
+                };
+
+                prebaked.push(PreBakedModel::Mesh{
+                    indices,
+                    normals,
+                    uvs,
+                    t,
+                    verts,
+                    cullable
+                });
+            },
+
             MeshElement::Mesh { verts, uvs, normals, indices, t } => {
                 let t = {
                     let index = variables
@@ -510,7 +575,8 @@ fn load_model(file_cache: &mut HashMap<PathBuf,(Vec<(String,String)>,Vec<PreBake
                     normals,
                     t,
                     uvs,
-                    verts
+                    verts,
+                    cullable: Cullable::Never
                 });
             },
         }

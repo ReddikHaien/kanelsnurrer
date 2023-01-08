@@ -14,14 +14,14 @@ pub struct ModelEntry(pub ModelData);
 
 impl Display for ModelEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("quads: {}",self.0.quads.len()))
+        f.write_fmt(format_args!("quads: {}",self.0.models.len()))
     }
 }
 
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ModelData{
-    pub quads: Vec<BakedModel>,
+    pub models: Vec<BakedModel>,
     pub transparent: bool,
 }
 

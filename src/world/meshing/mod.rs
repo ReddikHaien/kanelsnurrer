@@ -34,9 +34,9 @@ pub fn build_mesh(
                     
                     let mask = chunk.get_mask(x, y, z, &registry);
 
-                    model.0.quads.iter().filter(|x| x.cullable().is_visible(mask)).for_each(|x|{
+                    model.0.models.iter().filter(|x| x.cullable().is_visible(mask)).for_each(|x|{
                         match x {
-                            crate::loaders::model_loader::BakedModel::Quad { verts:v, uvs:u, normal:n, cullable:c } => {
+                            crate::loaders::model_loader::BakedModel::Quad { verts:v, uvs:u, normal:n, cullable:_ } => {
                                 let c = verts.len() as u16;
                                 verts.extend(v.iter().map(|x| *x + pos));
                                 uvs.extend(u);
@@ -46,6 +46,16 @@ pub fn build_mesh(
                                     c + 2,    c + 3, c + 1
                                 ]);
                             },
+                            crate::loaders::model_loader::BakedModel::Mesh { data, indices:i, cullable:_ } => {
+                                let c = verts.len() as u16;
+                                for (v, u, n) in data{
+                                    verts.push(*v + pos);
+                                    uvs.push(*u);
+                                    normals.push(*n);
+                                }
+                                indices.extend(i.iter().map(|x| *x + c));
+                            },
+                            
                         }
                     });
                 }

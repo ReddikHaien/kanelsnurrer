@@ -1,0 +1,6 @@
+[
+    Params({
+        "all": "textures/tan_sand.png",
+    }),
+    Inherit("assets/materials/wall/mod.ron")
+]

@@ -1,0 +1,7 @@
+[
+    Params({
+        "all": "textures/hazel_edge.png",
+        "sides": "textures/hazel_side.png",
+    }),
+    Inherit("assets/materials/wall/mod.ron")
+]

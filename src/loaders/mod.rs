@@ -2,12 +2,9 @@ use bevy::prelude::{App, Res, ResMut, State, SystemSet, Resource};
 
 use crate::AppState;
 
-use self::{model_loader::{ModelLoadingData, add_model_loading}};
+use self::model_loader::add_model_loading;
 
-pub mod old_model_loader;
 pub mod model_loader;
-
-
 
 const NUM_LOADERS: u32 = 1;
 

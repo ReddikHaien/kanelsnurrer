@@ -1,0 +1,7 @@
+[
+    Params({
+        "all": "textures/plum_edge.png",
+        "sides": "textures/plum_side.png",
+    }),
+    Inherit("assets/materials/wall/mod.ron")
+]

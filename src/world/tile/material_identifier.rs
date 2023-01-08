@@ -1,5 +1,7 @@
 use std::{collections::BTreeMap, fmt::Debug, borrow::Borrow};
 
+use crate::util::result_ext::ResultExt;
+
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub enum MaterialIdentifierElement {
     Custom(String),
@@ -9,6 +11,12 @@ impl MaterialIdentifierElement{
     pub fn as_str(&self) -> &str{
         match self{
             MaterialIdentifierElement::Custom(s) => s,
+        }
+    }
+
+    pub fn is_ignorable(&self) -> bool{
+        match self {
+            MaterialIdentifierElement::Custom(s) => s == "STRUCTURAL",
         }
     }
 }
@@ -64,14 +72,8 @@ impl MaterialIdentifierStorage {
         }
     }
 
-    pub fn get_id(&self, identifier: &MaterialIdentifier) -> u32 {
-        match self.storage.get(identifier, 0){
-            Ok(id) => id,
-            Err(id) => {
-                println!("missing: {:?}",identifier);
-                id
-            },
-        }
+    pub fn get_id(&self, identifier: &MaterialIdentifier) -> Result<u32,u32> {
+        self.storage.get(&identifier.0)
     }
 
     pub fn set_id(&mut self, identifier: &MaterialIdentifier, value: u32) {
@@ -113,27 +115,38 @@ impl StoragEntry {
         }
     }
 
-    fn get(&self, identifier: &MaterialIdentifier, index: usize) -> Result<u32,u32> {
+    fn get(&self, identifier: &[MaterialIdentifierElement]) -> Result<u32,u32> {
         match self {
-            StoragEntry::Leaf(id) => Ok(*id),
+            StoragEntry::Leaf(id) => {
+                if identifier.len() > 0 && !identifier[0].is_ignorable(){
+                    Err(*id)
+                }
+                else{
+                    Ok(*id)
+                }
+            },
             StoragEntry::Branch {
                 children,
                 default_model,
             } => {
-                if identifier.0.len() <= index {
-                    Err(*default_model)
+                if identifier.len() == 0 {
+                    Ok(*default_model)
                 } else {
-                    match children.get(&identifier.0[index]) {
-                        Some(entry) => entry.get(identifier, index + 1),
+                    match children.get(&identifier[0]) {
+                        Some(entry) => match entry.get(&identifier[1..]){
+                            x if x.clone().either() == 0 => {
+                                Err(*default_model)
+                            }
+                            x => x
+                        },
                         None =>{
-                            if identifier.0[0].as_str() == "STRUCTURAL"{
+                            if identifier[0].is_ignorable(){
                                 Ok(*default_model)
                             }
                             else{
                                 Err(*default_model)
                             }
                         }
-                            
                     }
                 }
             }

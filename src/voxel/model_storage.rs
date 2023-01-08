@@ -4,7 +4,7 @@ use bevy::prelude::{Assets, ResMut, Shader, Resource};
 use df_rust::clients::remote_fortress_reader::remote_fortress_reader::TiletypeShape;
 
 use crate::{
-    util::display_iter::DisplayableExt,
+    util::{display_iter::DisplayableExt, result_ext::ResultExt},
     world::tile::material_identifier::{
         MaterialIdentifier, MaterialIdentifierElement, MaterialIdentifierStorage,
     },
@@ -16,6 +16,8 @@ use super::{material::VOXEL_SHADER_HANDLE, ModelEntry};
 pub struct ModelRegistry{
     pub floor_storage: ModelStorage,
     pub wall_storage: ModelStorage,
+    pub up_down_stair_storage: ModelStorage,
+    pub down_stair_storage: ModelStorage,
 }
 
 impl ModelRegistry{
@@ -23,23 +25,40 @@ impl ModelRegistry{
         Self{
             floor_storage: ModelStorage::new(),
             wall_storage: ModelStorage::new(),
+            down_stair_storage: ModelStorage::new(),
+            up_down_stair_storage: ModelStorage::new(),
         }
     }
 
     pub fn get_model_id(&self, id: &MaterialIdentifier, shape: TiletypeShape) -> u32 {
-        match shape {
+        let model = match shape {
             TiletypeShape::Floor => self.floor_storage.get_model_id(id),
             TiletypeShape::Wall => self.wall_storage.get_model_id(id),
-            _ => 0
-        }
+            TiletypeShape::StairDown => self.down_stair_storage.get_model_id(id),
+            TiletypeShape::StairUpdown => self.up_down_stair_storage.get_model_id(id),
+            _ => Ok(0)
+        };
+        
+        model.either()
     }
 
     pub fn get_model(&self, id: &MaterialIdentifier, shape: TiletypeShape) -> Option<&ModelEntry>{
-        match shape {
+        let model = match shape {
             TiletypeShape::Floor => self.floor_storage.get_model(id),
             TiletypeShape::Wall => self.wall_storage.get_model(id),
-            _ => None
+            TiletypeShape::StairDown => self.down_stair_storage.get_model(id),
+            TiletypeShape::StairUpdown => self.up_down_stair_storage.get_model(id),
+            _ => Ok(None)
+        };
+
+        match model {
+            Ok(model) => model,
+            Err(model) => {
+                println!("missing model {:?} {:?}",shape, id);
+                model
+            },
         }
+
     }
 }
 pub struct ModelStorage {
@@ -56,13 +75,12 @@ impl ModelStorage {
         }
     }
 
-    pub fn get_model_id(&self, id: &MaterialIdentifier) -> u32 {
+    pub fn get_model_id(&self, id: &MaterialIdentifier) -> Result<u32,u32> {
         self.identifiers.get_id(id)
     }
 
-    pub fn get_model(&self, id: &MaterialIdentifier) -> Option<&ModelEntry>{
-        let id = self.get_model_id(id) as usize;
-        self.models.get(id-1)
+    pub fn get_model(&self, id: &MaterialIdentifier) -> Result<Option<&ModelEntry>,Option<&ModelEntry>>{
+        self.get_model_id(id).map_either(|index| self.models.get((index-1) as usize))
     }
 
     pub fn add_model(&mut self, model: ModelEntry, identifier: &Vec<MaterialIdentifierElement>) {

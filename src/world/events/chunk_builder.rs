@@ -1,7 +1,7 @@
 use bevy::{
     prelude::{
         default, Assets, Commands, Entity, Handle, IVec3,
-        MaterialMeshBundle, Mesh, Query, Res, ResMut, Transform, StandardMaterial,
+        MaterialMeshBundle, Mesh, Query, Res, ResMut, Transform, StandardMaterial, PbrBundle,
     },
 };
 use df_rust::clients::remote_fortress_reader::remote_fortress_reader::MapBlock;
@@ -96,6 +96,8 @@ pub fn handle_loading(
 
     let material = materials.add(StandardMaterial{
         base_color_texture: Some(model_data.atlas_handle.clone()),
+        metallic: 0.0,
+        reflectance: 0.0,
         ..default()
     });
 
@@ -144,7 +146,7 @@ pub fn handle_loading(
                 Err(_) => {
                     let handle = meshes.add(Mesh::new(bevy::render::render_resource::PrimitiveTopology::TriangleList));
                     commands.entity(entity)
-                    .insert(MaterialMeshBundle{
+                    .insert(PbrBundle{
                         mesh: handle.clone(),
                         material: material.clone(),
                         transform: Transform::from_xyz((pos.x * 16) as f32, (pos.y * 16) as f32, (pos.z * 16) as f32),
