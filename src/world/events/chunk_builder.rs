@@ -162,7 +162,6 @@ pub fn handle_loading(
             build_mesh(
                 mesh,
                 &chunk,
-                &world,
                 &material_registry,
                 &model_storage
             );

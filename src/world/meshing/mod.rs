@@ -1,14 +1,12 @@
 use bevy::{prelude::{Mesh, Vec3, IVec3, Vec2}, render::mesh::Indices};
-use df_rust::clients::remote_fortress_reader::remote_fortress_reader::TiletypeShape;
 
-use crate::voxel::model_storage::{ModelStorage, ModelRegistry};
+use crate::voxel::model_storage::ModelRegistry;
 
-use super::{MaterialRegistry, World, Chunk, Matpair};
+use super::{MaterialRegistry, World, Chunk};
 
 pub fn build_mesh(
     mesh: &mut Mesh,
     chunk: &Chunk,
-    world: &World,
     registry: &MaterialRegistry,
     models: &ModelRegistry){
     let mut verts = Vec::<Vec3>::new();
