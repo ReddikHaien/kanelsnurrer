@@ -1,14 +1,14 @@
 use bevy::{
     prelude::{
         default, Assets, Commands, Entity, Handle, IVec3,
-        MaterialMeshBundle, Mesh, Query, Res, ResMut, Transform, StandardMaterial, PbrBundle,
-    },
+        MaterialMeshBundle, Mesh, Query, Res, ResMut, Transform, StandardMaterial, PbrBundle, HandleUntyped, Material,
+    }, reflect::TypeUuid,
 };
-use df_rust::clients::remote_fortress_reader::remote_fortress_reader::MapBlock;
+use df_rust::clients::remote_fortress_reader::remote_fortress_reader::{MapBlock, TiletypeShape};
 use futures_lite::future;
 
 use crate::{
-    voxel::{material::VoxelMaterial, model_storage::{ModelStorage, ModelRegistry}},
+    voxel::{model_storage::{ModelStorage, ModelRegistry}},
     world::{
         tile::Tile, World, meshing::build_mesh, MaterialRegistry,
     }, loaders::model_loader::ModelLoadingData,
@@ -82,6 +82,9 @@ pub struct ChunkBuildEvent {
 //     }
 // }
 
+pub const VOXEL_MATERIAL: HandleUntyped = 
+    HandleUntyped::weak_from_u64(StandardMaterial::TYPE_UUID, 12012309628019059972);
+
 pub fn handle_loading(
     mut commands: Commands,
     mut query: Query<(Entity, &mut LoadData)>,
@@ -90,21 +93,16 @@ pub fn handle_loading(
     mut world: ResMut<World>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     material_registry: Res<MaterialRegistry>,
-    model_storage: Res<ModelRegistry>,
+    mut model_storage: ResMut<ModelRegistry>,
     model_data: Res<ModelLoadingData>
 ){
 
-    let material = materials.add(StandardMaterial{
-        base_color_texture: Some(model_data.atlas_handle.clone()),
-        metallic: 0.0,
-        reflectance: 0.0,
-        ..default()
-    });
+    
 
     for (entity, mut data) in &mut query{
         if let Some(event) = future::block_on(future::poll_once(&mut data.0)){
 
-            println!("received data for {}",event.position);
+            //println!("received data for {}",event.position);
 
             let pos = event.position;
             let block = &event.block;
@@ -137,7 +135,6 @@ pub fn handle_loading(
                     }
                 }            
             }
-
             
             let mesh = match mesh_query.get(entity){
                 Ok((_, mesh)) => {
@@ -148,7 +145,7 @@ pub fn handle_loading(
                     commands.entity(entity)
                     .insert(PbrBundle{
                         mesh: handle.clone(),
-                        material: material.clone(),
+                        material: VOXEL_MATERIAL.typed().clone(),
                         transform: Transform::from_xyz((pos.x * 16) as f32, (pos.y * 16) as f32, (pos.z * 16) as f32),
                         ..default()
                     });
@@ -163,10 +160,11 @@ pub fn handle_loading(
                 mesh,
                 &chunk,
                 &material_registry,
-                &model_storage
+                &mut model_storage
             );
             commands.entity(entity).remove::<LoadData>();
-            println!("Removed LoadData for {}",pos)
+            //println!("Removed LoadData for {}",pos);
+            //model_storage.get_storage_entry(TiletypeShape::Wall).print_tree();
         }
     }
 }

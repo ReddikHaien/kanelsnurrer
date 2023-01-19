@@ -1,11 +1,11 @@
 use std::{collections::{btree_map::Entry, BTreeMap}, fs::File};
 use std::io::Write;
-use bevy::prelude::{Component, Entity, FromWorld, Resource};
+use bevy::{prelude::{Component, Entity, FromWorld, Resource}};
 use df_rust::clients::remote_fortress_reader::{RemoteFortressReader, remote_fortress_reader::{MatPair, TiletypeMaterial, TiletypeShape, TiletypeSpecial, TiletypeVariant, Tiletype}};
 
 use crate::{FortressResource, loaders::model_loader::Direction};
 
-use self::tile::{Tile, material_identifier::MaterialIdentifier};
+use self::tile::{Tile, material_identifier::{MaterialIdentifier, Identifier}};
 
 pub mod events;
 pub mod tile;
@@ -131,7 +131,7 @@ impl From<MatPair> for Matpair{
 
 #[derive(Debug)]
 pub struct MaterialDef{
-    pub id: Option<MaterialIdentifier>,
+    pub id: Option<Identifier>,
     pub mat_pair: Matpair,
 }
 
@@ -184,7 +184,7 @@ impl FromWorld for MaterialRegistry{
             |x|{
                 let id = x.id.map(
                     |y|
-                    MaterialIdentifier::from(String::from_utf8(y).unwrap())
+                    Identifier::from(String::from_utf8(y).unwrap())
                 );
                 let mp = x.mat_pair.into();
                 (

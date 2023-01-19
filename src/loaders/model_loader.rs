@@ -1,12 +1,21 @@
 use std::{path::PathBuf, fs, str::FromStr, hash::Hash};
 
-use bevy::{utils::{HashMap, HashSet}, prelude::{Vec2, Vec3, IVec4, ResMut, AssetServer, Res, Assets, Image, Handle, Resource, App, SystemSet, State, warn}, asset::LoadState, sprite::{TextureAtlasBuilder, TextureAtlas}};
+use bevy::{utils::{HashMap, HashSet}, prelude::{Vec2, Vec3, IVec4, ResMut, AssetServer, Res, Assets, Image, Handle, Resource, App, SystemSet, State, warn, StandardMaterial, default, AlphaMode}, asset::LoadState, sprite::{TextureAtlasBuilder, TextureAtlas}};
+use df_rust::clients::remote_fortress_reader::remote_fortress_reader::TiletypeShape;
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
-use crate::{world::tile::material_identifier::MaterialIdentifierElement, voxel::{model_storage::{ModelStorage, ModelRegistry}, ModelEntry, ModelData}, util::mesh_loader::load_mesh_file};
+use crate::{world::{tile::material_identifier::{MaterialIdentifierElement, Identifier}, events::chunk_builder::VOXEL_MATERIAL}, voxel::{model_storage::{ModelStorage, ModelRegistry, RegistryContainers}, ModelEntry, ModelData}, util::mesh_loader::load_mesh_file};
 
 use super::LoadingInfo;
+
+const SHAPE_ASSETS: [(&str, TiletypeShape);4] = [
+    ("assets/materials/wall",TiletypeShape::Wall),
+    ("assets/materials/floor",TiletypeShape::Floor),
+    ("assets/materials/up_down_stair",TiletypeShape::StairUpdown),
+    ("assets/materials/down_stair",TiletypeShape::StairDown),
+];
+
 
 #[derive(Deserialize)]
 pub struct Texturing<'a>{
@@ -160,12 +169,12 @@ impl BakedModel{
     }
 }
 
+pub type ModelCache = (Vec<PathBuf>, HashMap<PathBuf,(Vec<PreBakedModel>,bool)>);
+
 #[derive(Resource, Default)]
 pub struct ModelLoadingData{
-    floor_cache: HashMap<PathBuf,(Vec<PreBakedModel>,bool)>,
-    wall_cache: HashMap<PathBuf,(Vec<PreBakedModel>,bool)>,
-    down_stair_cache: HashMap<PathBuf,(Vec<PreBakedModel>,bool)>,
-    up_down_stair_cache: HashMap<PathBuf,(Vec<PreBakedModel>,bool)>,
+    
+    chache_storage: RegistryContainers<ModelCache>,
 
     pub atlas_handle: Handle<Image>,
     handlers: Vec<Handle<Image>>,
@@ -207,17 +216,16 @@ fn load_models(
 ){
     let mut textures = Vec::new();
 
-    model_data.floor_cache = load_folder("assets/materials/floor", &mut textures, &asset_server);
-    model_data.wall_cache = load_folder("assets/materials/wall", &mut textures, &asset_server);
-    model_data.down_stair_cache = load_folder("assets/materials/down_stair", &mut textures, &asset_server);
-    model_data.up_down_stair_cache = load_folder("assets/materials/up_down_stair", &mut textures, &asset_server);
 
+    for (folder,shape) in &SHAPE_ASSETS{
+        *model_data.chache_storage.get_mut(*shape) = load_folder(folder, &mut textures, &asset_server);
+    }
 
     let textures = textures.into_iter().map(|x| asset_server.load::<Image,_>(x)).collect::<Vec<_>>();
     model_data.handlers = textures;
 }
 
-fn load_folder(path: &str, textures: &mut Vec<String>, asset_server: &AssetServer)-> bevy::utils::hashbrown::HashMap<PathBuf, (Vec<PreBakedModel>, bool)> {
+fn load_folder(path: &str, textures: &mut Vec<String>, asset_server: &AssetServer)-> (Vec<PathBuf>, bevy::utils::hashbrown::HashMap<PathBuf, (Vec<PreBakedModel>, bool)>) {
     let mut file_cache = HashMap::new();
 
     let mut materials = Vec::new();
@@ -261,7 +269,7 @@ fn load_folder(path: &str, textures: &mut Vec<String>, asset_server: &AssetServe
     println!("{:#?}",file_cache);
 
     
-    file_cache
+    (materials, file_cache)
 }
 
 pub(super) fn bake_models(
@@ -271,6 +279,7 @@ pub(super) fn bake_models(
     mut textures: ResMut<Assets<Image>>,
     mut registry: ResMut<ModelRegistry>,
     mut info: ResMut<LoadingInfo>,
+    mut materials: ResMut<Assets<StandardMaterial>>
 ){
     let mut atlas_builder = TextureAtlasBuilder::default();
     for x in &model_data.handlers{
@@ -287,19 +296,38 @@ pub(super) fn bake_models(
 
     model_data.atlas_handle = atlas_texture;
 
-    registry.floor_storage = build_storage(std::mem::take(&mut model_data.floor_cache), &atlas, &model_data.handlers, "assets/materials/floor");
-    registry.wall_storage = build_storage(std::mem::take(&mut model_data.wall_cache), &atlas, &model_data.handlers, "assets/materials/wall");
-    registry.down_stair_storage = build_storage(std::mem::take(&mut model_data.down_stair_cache), &atlas, &model_data.handlers, "assets/materials/down_stair");
-    registry.up_down_stair_storage = build_storage(std::mem::take(&mut model_data.up_down_stair_cache), &atlas, &model_data.handlers, "assets/materials/up_down_stair");
+    for (folder,shape) in &SHAPE_ASSETS{
+        *registry.get_storage_entry_mut(*shape) = build_storage(
+                std::mem::take(model_data.chache_storage.get_mut(*shape)), 
+                &atlas, 
+                &model_data.handlers,
+                folder
+            );
+
+            println!("{:?}: {:#?}",shape,registry.get_storage_entry(*shape));
+    }
+
+    materials.get_or_insert_with(VOXEL_MATERIAL.typed::<StandardMaterial>(), ||StandardMaterial{
+        base_color_texture: Some(model_data.atlas_handle.clone()),
+        metallic: 0.0,
+        reflectance: 0.0,
+        alpha_mode: AlphaMode::Mask(0.5),
+        ..default()
+    });
 
     info.loaded += 1;
 }
 
-fn build_storage(cache: HashMap<PathBuf, (Vec<PreBakedModel>, bool)>, atlas: &TextureAtlas, handlers: &[Handle<Image>], path_root: &str) -> ModelStorage{
+fn build_storage(cache: ModelCache, atlas: &TextureAtlas, handlers: &[Handle<Image>], path_root: &str) -> ModelStorage{
+
+    let (entries, mut cache) = cache;
 
     let mut storage = ModelStorage::new();
 
-    for (path, (model, transparent)) in cache{
+    for path in entries{
+        let Some((model, transparent)) = cache.remove(&path) else{
+            panic!("{} does not have a model!",path.display());
+        };
         let mut quads = Vec::new();
 
         for x in model{
@@ -349,22 +377,21 @@ fn build_storage(cache: HashMap<PathBuf, (Vec<PreBakedModel>, bool)>, atlas: &Te
 
         let name = into_material_name(path, path_root);
         
+
         let data = ModelData{
             transparent,
             models: quads,
         };
 
-        storage.add_model(ModelEntry(data), &name);
+        storage.add_model(ModelEntry(data), name);
     }
-
     storage
 }
 
-fn into_material_name(path: PathBuf, root: &str) -> Vec<MaterialIdentifierElement>{
+fn into_material_name(path: PathBuf, root: &str) -> Identifier{
 
     println!("{}",path.display());
     let path = path.strip_prefix(root).unwrap();
-
     let mut out = Vec::new();
     for x in path.iter(){
         let s = x.to_string_lossy();
@@ -379,9 +406,9 @@ fn into_material_name(path: PathBuf, root: &str) -> Vec<MaterialIdentifierElemen
         }
     }
 
-    println!("{:?}",out);
-    out
-
+    let id = out.into();
+    println!("{}",id);
+    id
 }
 
 fn create_quad(normal: Direction, size: Vec2, position: Vec3, rotation: f32) -> ([Vec3;4], [Vec2;4], Vec3){

@@ -8,7 +8,7 @@ pub fn build_mesh(
     mesh: &mut Mesh,
     chunk: &Chunk,
     registry: &MaterialRegistry,
-    models: &ModelRegistry){
+    models: &mut ModelRegistry){
     let mut verts = Vec::<Vec3>::new();
     let mut uvs = Vec::<Vec2>::new();
     let mut normals = Vec::<Vec3>::new();
@@ -22,13 +22,15 @@ pub fn build_mesh(
                 if !tile.hidden{
                     let pos = IVec3::new(x,y,z).as_vec3();
                     let type_ = registry.get_tiletype(tile);
+
                     let mat_pair = &tile.base_mat;
                     let Some(def) = registry.matdefs.get(mat_pair)
                         else{
                             continue;
                         };
                     let id = def.id.as_ref().unwrap();
-                    let Some(model) = models.get_model(id, type_.shape) else{ continue; };
+
+                    let Some(model) = models.get_model_and_cache(id, type_.shape) else{ continue; };
                     
                     let mask = chunk.get_mask(x, y, z, &registry);
 
@@ -66,42 +68,3 @@ pub fn build_mesh(
     mesh.set_indices(Some(Indices::U16(indices)));
     mesh.compute_aabb();
 }
-
-// fn add_top(
-//     verts: &mut Vec<[f32;3]>,
-//     data: &mut Vec<[f32;3]>,
-//     indices: &mut Vec<u16>,
-//     pos: Vec3,
-//     fcount: &mut u16
-// ){
-//     verts.push((pos + Vec3::new(0.0, 1.0, 0.0)).to_array());
-//     verts.push((pos + Vec3::new(1.0, 1.0, 0.0)).to_array());
-//     verts.push((pos + Vec3::new(0.0, 1.0, 1.0)).to_array());
-//     verts.push((pos + Vec3::new(1.0, 1.0, 1.0)).to_array());
-
-//     data.push([f32::from_bits(0),f32::from_bits(0),
-//         f32::from_bits(
-//             0 << 3 | 0 << 2 | 1 << 1 | 0,
-//         )]);
-//     data.push([f32::from_bits(0),f32::from_bits(0),
-//         f32::from_bits(
-//             0 << 3 | 1 << 2 | 1 << 1 | 0,
-//         )]);
-//     data.push([f32::from_bits(0),f32::from_bits(0),
-//         f32::from_bits(
-//             0 << 3 | 0 << 2 | 1 << 1 | 1,
-//         )]);
-//     data.push([f32::from_bits(0),f32::from_bits(0),
-//         f32::from_bits(
-//             0 << 3 | 1 << 2 | 1 << 1 | 1,
-//         )]);
-
-//     indices.push(*fcount);
-//     indices.push(*fcount+2);
-//     indices.push(*fcount+1);
-//     indices.push(*fcount+2);
-//     indices.push(*fcount+3);
-//     indices.push(*fcount+1);
-
-//     *fcount += 4;
-// }

@@ -1,0 +1,37 @@
+[   
+    Params({
+        "ground": "textures/grass.png",
+        "vegetation": "textures/missing.png",
+    }),
+    Face(
+        n: Left,
+        p: Some((0.4,0.0,0.0)),
+        t: (src: "vegetation"),
+    ),
+    Face(
+        n: Right,
+        p: Some((-0.4,0.0,0.0)),
+        t: (src: "vegetation"),
+    ),
+    Face(
+        n: Forward,
+        p: Some((0.0,0.0,0.4)),
+        t: (src: "vegetation"),
+    ),
+    Face(
+        n: Backwards,
+        p: Some((0.0,0.0,-0.4)),
+        t: (src: "vegetation"),
+    ),
+    Face(
+        n: Up, 
+        p: Some((0.0,-0.5,0.0)), 
+        t: (src: "ground")
+    ),
+    Face(
+        n: Down,
+        p: Some((0.0, 0.5, 0.0)),
+        t: (src: "ground"),
+        cullable: WhenHidden(Up),
+    )
+]

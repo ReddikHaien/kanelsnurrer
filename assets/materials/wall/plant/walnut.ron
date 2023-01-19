@@ -1,0 +1,7 @@
+[
+    Params({
+        "all": "textures/plant/tree/walnut_middle.png",
+        "sides": "textures/plant/tree/walnut_side.png",
+    }),
+    Inherit("assets/materials/wall/mod.ron")
+]

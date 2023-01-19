@@ -1,0 +1,6 @@
+[
+    Params({
+        "vegetation": "textures/plant/vegetation/marsh_thistle.png"
+    }),
+    Inherit("assets/models/tall_vegetation_floor.ron")
+]

@@ -1,6 +1,6 @@
 [
     Params({
-        "all": "textures/rock_unknown.png",
+        "all": "textures/stone/sandy_clay.png",
     }),
     Inherit("assets/materials/wall/mod.ron")
 ]

@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{util::display_iter::DisplayableExt, loaders::model_loader::BakedModel};
 
-pub mod material;
 pub mod model_storage;
 
 

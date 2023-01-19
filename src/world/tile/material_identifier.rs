@@ -1,10 +1,137 @@
-use std::{collections::BTreeMap, fmt::Debug, borrow::Borrow};
+use std::{collections::BTreeMap, borrow::Borrow, sync::Arc, fmt::{Debug, Display}};
 
-use crate::util::result_ext::ResultExt;
+
+use crate::util::{result_ext::ResultExt, cache::CacheKey, display_iter::{Displayable, DisplayableExt}};
+
+#[derive(Debug,Clone)]
+pub struct InnerIdentifier(Arc<[MaterialIdentifierElement]>,u32);
+
+impl Display for InnerIdentifier{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let displayable = self.0[0..self.1 as usize].iter().into_displayable("::");
+        Display::fmt(&displayable, f)
+    }
+}
+
+impl PartialEq for InnerIdentifier{
+    fn eq(&self, other: &Self) -> bool {
+        if self.1 == other.1{
+            for i in 0..self.1{
+                let a = &self.0[i as usize];
+                let b = &other.0[i as usize];
+                if a != b{
+                    return false;
+                }
+            }
+
+            true
+        }
+        else{
+            false
+        }
+    }
+}
+
+impl PartialOrd for InnerIdentifier{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match self.1.partial_cmp(&other.1) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        
+        for i in 0..self.1{
+            let a = &self.0[i as usize];
+            let b = &other.0[i as usize];
+            match a.partial_cmp(b){
+                Some(core::cmp::Ordering::Equal) => {},
+                ord => return ord,
+            }
+        }
+
+        Some(core::cmp::Ordering::Equal)
+    }
+}
+
+impl Eq for InnerIdentifier{}
+impl Ord for InnerIdentifier{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub struct Identifier(InnerIdentifier);
+
+impl Debug for Identifier{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+impl Display for Identifier{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+impl CacheKey for Identifier{
+    fn parent(&self) -> Option<Self> {
+        let els = (self.0).1 - 1;
+        if els == 0{
+            None
+        }
+        else{
+            Some(Identifier(InnerIdentifier((self.0).0.clone(),els)))
+        }
+    }
+}
+
+impl Identifier{
+    pub fn is_empty(&self) -> bool{
+        (self.0).1 == 0
+    }
+
+    pub fn last(&self) -> Option<&str>{
+        if (self.0).1 == 0{
+            None
+        }
+        else{
+            Some((self.0).0[(self.0).1 as usize - 1].as_str())
+        }
+    }
+}
+
+impl From<String> for Identifier {
+    fn from(s: String) -> Self {
+        let v = s
+            .split(':')
+            .map(|x| x.into())
+            .collect::<Vec<MaterialIdentifierElement>>();
+
+        let content: Arc<[MaterialIdentifierElement]> = Arc::from(v.into_boxed_slice());
+        let c = content.len() as u32;
+        Self(InnerIdentifier(content,c))
+    }
+}
+
+impl From<Vec<MaterialIdentifierElement>> for Identifier{
+    fn from(value: Vec<MaterialIdentifierElement>) -> Self {
+        let len = value.len() as u32;
+        Self(InnerIdentifier(value.into_boxed_slice().into(),len))
+    }
+}
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub enum MaterialIdentifierElement {
     Custom(String),
+}
+
+impl Display for MaterialIdentifierElement{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self{
+            MaterialIdentifierElement::Custom(str) => Display::fmt(str, f),
+        }
+    }
 }
 
 impl MaterialIdentifierElement{

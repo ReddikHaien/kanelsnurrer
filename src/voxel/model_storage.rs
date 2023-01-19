@@ -1,60 +1,103 @@
-use std::fmt::{Display, Debug};
+use std::{fmt::{Display, Debug}, mem::MaybeUninit};
 
 use bevy::prelude::{Assets, ResMut, Shader, Resource};
 use df_rust::clients::remote_fortress_reader::remote_fortress_reader::TiletypeShape;
 
 use crate::{
-    util::{display_iter::DisplayableExt, result_ext::ResultExt},
+    util::{display_iter::DisplayableExt, result_ext::ResultExt, cache::Cache},
     world::tile::material_identifier::{
-        MaterialIdentifier, MaterialIdentifierElement, MaterialIdentifierStorage,
+        MaterialIdentifier, MaterialIdentifierElement, MaterialIdentifierStorage, Identifier,
     },
 };
 
-use super::{material::VOXEL_SHADER_HANDLE, ModelEntry};
+use super::{ModelEntry};
+
+pub struct RegistryContainers<T: >{
+    registries: [T;21]
+}
+
+impl<T: Default> Default for RegistryContainers<T>{
+    fn default() -> Self {
+        Self::new(T::default)
+    }
+}
+
+impl<T> RegistryContainers<T>{
+
+    pub fn new<F: Fn() -> T>(f: F) -> Self{
+        
+        let mut maybes: [MaybeUninit<_>;21] = MaybeUninit::uninit_array();
+
+        for i in 0..maybes.len(){
+            maybes[i].write(f());
+        }
+
+        unsafe{
+            Self{
+                registries: MaybeUninit::array_assume_init(maybes),
+            }
+        }
+        
+    }
+
+    pub fn get(&self, shape: TiletypeShape) -> &T{
+        let id: i32 = shape.into();
+        self.registries.get((id + 1) as usize).unwrap_or_else(|| panic!("unhandled shape id {}, {:?}, index : {}",id,shape, (id + 1) as usize))
+    }
+
+    pub fn get_mut(&mut self, shape: TiletypeShape) -> &mut T{
+        let id: i32 = shape.into();
+        self.registries.get_mut((id + 1) as usize).unwrap_or_else(|| panic!("unhandled shape id {}, {:?}, index : {}",id,shape, (id + 1) as usize))
+    }
+
+}
 
 #[derive(Resource)]
 pub struct ModelRegistry{
-    pub floor_storage: ModelStorage,
-    pub wall_storage: ModelStorage,
-    pub up_down_stair_storage: ModelStorage,
-    pub down_stair_storage: ModelStorage,
+    container: RegistryContainers<ModelStorage>
 }
 
 impl ModelRegistry{
     pub fn new() -> Self{
         Self{
-            floor_storage: ModelStorage::new(),
-            wall_storage: ModelStorage::new(),
-            down_stair_storage: ModelStorage::new(),
-            up_down_stair_storage: ModelStorage::new(),
+            container: RegistryContainers::new(ModelStorage::new)
         }
     }
 
-    pub fn get_model_id(&self, id: &MaterialIdentifier, shape: TiletypeShape) -> u32 {
-        let model = match shape {
-            TiletypeShape::Floor => self.floor_storage.get_model_id(id),
-            TiletypeShape::Wall => self.wall_storage.get_model_id(id),
-            TiletypeShape::StairDown => self.down_stair_storage.get_model_id(id),
-            TiletypeShape::StairUpdown => self.up_down_stair_storage.get_model_id(id),
-            _ => Ok(0)
-        };
-        
-        model.either()
+
+    pub fn get_storage_entry(&self, shape: TiletypeShape) -> &ModelStorage{
+        self.container.get(shape)
     }
 
-    pub fn get_model(&self, id: &MaterialIdentifier, shape: TiletypeShape) -> Option<&ModelEntry>{
-        let model = match shape {
-            TiletypeShape::Floor => self.floor_storage.get_model(id),
-            TiletypeShape::Wall => self.wall_storage.get_model(id),
-            TiletypeShape::StairDown => self.down_stair_storage.get_model(id),
-            TiletypeShape::StairUpdown => self.up_down_stair_storage.get_model(id),
-            _ => Ok(None)
-        };
+    pub fn get_storage_entry_mut(&mut self, shape: TiletypeShape) -> &mut ModelStorage{
+        self.container.get_mut(shape)
+    }
+
+    pub fn get_model_and_cache(&mut self, id: &Identifier, shape: TiletypeShape) -> Option<&ModelEntry>{
+        match self.container.get_mut(shape).get_model_and_cache(id){
+            Ok(model) => model,
+            Err(model) => {
+                if id.last() != Some("STRUCTURAL"){
+                    eprintln!("Missing key in {:?} : {}",shape,id);
+                }
+                model
+            },
+        }
+    }
+
+    pub fn get_model_id(&self, id: &Identifier, shape: TiletypeShape) -> u32 {
+        self.container.get(shape).get_model_id(id).either()
+    }
+
+    pub fn get_model(&self, id: &Identifier, shape: TiletypeShape) -> Option<&ModelEntry>{
+        let model = self.container.get(shape).get_model(id);
 
         match model {
             Ok(model) => model,
             Err(model) => {
-                println!("missing model {:?} {:?}",shape, id);
+                if shape != TiletypeShape::NoShape{
+                    println!("missing model {:?} {:?}",shape, id);
+                }
                 model
             },
         }
@@ -64,34 +107,56 @@ impl ModelRegistry{
 pub struct ModelStorage {
     models: Vec<ModelEntry>,
 
-    identifiers: MaterialIdentifierStorage,
+    identifiers: Cache<Identifier,u32>,
+}
+
+impl Debug for ModelStorage{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("ModelStorage").field(&self.identifiers).finish()
+    }
 }
 
 impl ModelStorage {
     pub fn new() -> Self {
         Self {
             models: Vec::new(),
-            identifiers: MaterialIdentifierStorage::new(),
+            identifiers: Cache::new_with_default(0),
         }
     }
 
-    pub fn get_model_id(&self, id: &MaterialIdentifier) -> Result<u32,u32> {
-        self.identifiers.get_id(id)
+    pub fn get_model_id(&self, id: &Identifier) -> Result<u32,u32> {
+        self.identifiers.get_recursive(id).ok_or(0).cloned()
     }
 
-    pub fn get_model(&self, id: &MaterialIdentifier) -> Result<Option<&ModelEntry>,Option<&ModelEntry>>{
+    pub fn get_model(&self, id: &Identifier) -> Result<Option<&ModelEntry>,Option<&ModelEntry>>{
         self.get_model_id(id).map_either(|index| self.models.get((index-1) as usize))
     }
 
-    pub fn add_model(&mut self, model: ModelEntry, identifier: &Vec<MaterialIdentifierElement>) {
+    pub fn get_model_id_and_cache(&mut self, id: &Identifier) -> Result<Option<u32>,Option<u32>>{
+        self.identifiers.get_or_initialize_with_parent(id).map_either(|x| x.cloned())
+    }
+
+    pub fn get_model_and_cache(&mut self, id: &Identifier) -> Result<Option<&ModelEntry>,Option<&ModelEntry>>{
+        self.get_model_id_and_cache(id).map_either(|x|{
+            x.map(|y| self.models.get((y-1) as usize)).flatten()
+        })
+    }
+
+    pub fn add_model(&mut self, model: ModelEntry, identifier: Identifier) {
         self.models.push(model);
-        let id = self.models.len();
-        self.identifiers
-            .set_id(&identifier.clone().into(), id as u32);
+        let id = self.models.len() as u32;
+
+        if identifier.is_empty(){
+            self.identifiers.set_default(id);
+        }
+        else{
+            self.identifiers
+            .set(identifier, id);
+        }
     }
 
     pub fn print_tree(&self) {
-        self.identifiers.print_tree();
+        println!("{:#?}",self.identifiers);
     }
 
     pub fn generate_shader_assets(&self, mut shaders: ResMut<Assets<Shader>>) {
@@ -200,7 +265,7 @@ impl ModelStorage {
                 })
                 .into_displayable('\n')
         );
-        shaders.set_untracked(VOXEL_SHADER_HANDLE, Shader::from_wgsl(shader));
+        //shaders.set_untracked(VOXEL_SHADER_HANDLE, Shader::from_wgsl(shader));
     }
 }
 
